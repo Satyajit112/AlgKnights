@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trino Database Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        .connection-panel {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .operation-panel {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            margin-right: 2px;
+            border-top-left-radius: 3px;
+            border-top-right-radius: 3px;
+        }
+
+        .tab.active {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .message {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            display: none;
+            margin: 10px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Trino Database Manager</h1>
+
+        <div class="connection-panel" id="connectionPanel">
+            <h2>Connect to Trino Server</h2>
+            <form id="connectionForm">
+                <div>
+                    <label for="host">Host:</label>
+                    <input type="text" id="host" value="localhost">
+                </div>
+                <div>
+                    <label for="port">Port:</label>
+                    <input type="number" id="port" value="8080">
+                </div>
+                <div>
+                    <label for="user">Username:</label>
+                    <input type="text" id="user" required>
+                </div>
+                <div>
+                    <label for="catalog">Catalog:</label>
+                    <input type="text" id="catalog" value="memory">
+                </div>
+                <div>
+                    <label for="schema">Schema:</label>
+                    <input type="text" id="schema" value="default">
+                </div>
+                <button type="submit" id="connectBtn">Connect</button>
+                <div id="connectionMessage" class="message"></div>
+                <div class="loader" id="connectionLoader"></div>
+            </form>
+        </div>
+
+        <div class="operation-panel" id="operationPanel">
+            <!-- Operation panel content (unchanged) -->
+        </div>
+    </div>
+
+    <script>
+        // Helper functions
+        function showLoader(loader) {
+            loader.style.display = 'block';
+        }
+
+        function hideLoader(loader) {
+            loader.style.display = 'none';
+        }
+
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = 'message ' + type;
+        }
+
+        function clearMessage(element) {
+            element.textContent = '';
+            element.className = 'message';
+        }
+
+        // API base URL - change this to match your Flask server
+        const API_BASE_URL = 'http://localhost:5000/api';
+
+        // DOM Elements
+        const connectionPanel = document.getElementById('connectionPanel');
+        const operationPanel = document.getElementById('operationPanel');
+        const connectionForm = document.getElementById('connectionForm');
+        const connectionMessage = document.getElementById('connectionMessage');
+        const connectionLoader = document.getElementById('connectionLoader');
+
+        // Connection form submission
+        connectionForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            console.log("Connect button clicked");
+
+            const connectionData = {
+                host: document.getElementById('host').value,
+                port: document.getElementById('port').value,
+                user: document.getElementById('user').value,
+                catalog: document.getElementById('catalog').value,
+                schema: document.getElementById('schema').value
+            };
+
+            console.log("Connection data:", connectionData);
+            showLoader(connectionLoader);
+            clearMessage(connectionMessage);
+
+            fetch(`${API_BASE_URL}/connect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(connectionData)
+            })
+                .then(response => {
+                    console.log("Response received:", response);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Data:", data);
+                    hideLoader(connectionLoader);
+
+                    if (data.status === 'success') {
+                        showMessage(connectionMessage, data.message, 'success');
+                        // Show operation panel after successful connection
+                        connectionPanel.style.display = 'none';
+                        operationPanel.style.display = 'block';
+                    } else {
+                        showMessage(connectionMessage, data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    hideLoader(connectionLoader);
+                    showMessage(connectionMessage, `Error: ${error.message}`, 'error');
+                });
+        });
+    </script>
+</body>
+
+</html>
